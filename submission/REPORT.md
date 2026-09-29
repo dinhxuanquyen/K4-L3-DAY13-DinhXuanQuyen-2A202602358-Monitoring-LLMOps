@@ -8,7 +8,7 @@
 - **MSSV:** 2A202602358
 - **Lớp:** K4-L3A
 - **Repository URL:** https://github.com/dinhxuanquyen/K4-L3-DAY13-DinhXuanQuyen-2A202602358-Monitoring-LLMOps
-- **Commit SHA cuối:** `a93d195` (commit đã chứa source và evidence; sau khi commit bản report cuối, dùng SHA mới nhất từ `git log -1 --oneline` để nộp trên LMS/Codelabs)
+- **Commit SHA cuối:** `149ca37`
 - **Challenge ID:** `day13-k4-l3a-monitoring-llmops-v1`
 - **Tên project Langfuse cá nhân:** `day13-k4-l3a-2A202602358`
 
@@ -40,10 +40,10 @@
 | `validate_logs.py`      | 30/100    | 100/100      | Đã có correlation ID, đủ required fields, log enrichment và PII scrubber |
 | `validate_dashboard.py` | 6/6       | 6/6          | Dashboard contract đủ 6 panel, có time range, đơn vị và threshold        |
 | `pytest`                | 22 passed | 27 passed    | Test tracing/prompt, dashboard, logging, PII và metrics đều pass         |
-| Số traces hợp lệ        |           | >= 10        | Langfuse trace list có nhiều root traces `lab-agent-run` do workload tạo |
+| Số traces hợp lệ        |           | >= 10        | Langfuse trace list có nhiều root traces`lab-agent-run` do workload tạo  |
 | Số PII leak             |           | 0            | `validate_logs.py` không phát hiện PII leak                              |
-| Latency P95 / TTFT P95  |           | 2654 / 50 ms | Giá trị trong lúc chạy CP3 challenge `rag_slow`                          |
-| Retrieval success rate  |           | 100%         | Incident là latency, không phải retrieval failure                         |
+| Latency P95 / TTFT P95  |           | 2654 / 50 ms | Giá trị trong lúc chạy CP3 challenge`rag_slow`                           |
+| Retrieval success rate  |           | 100%         | Incident là latency, không phải retrieval failure                        |
 
 ## 4. Logging và PII
 
@@ -99,4 +99,4 @@
 - [x] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ secret key/API key.
 - [x] Repository chạy lại được theo README.
 - [x] Không có secret, API key, PII thô hoặc evidence của người khác/lớp khác.
-- [ ] URL repo và commit SHA cuối đã được nộp trên LMS/Codelabs.
+- [x] URL repo và commit SHA cuối đã được nộp trên LMS/Codelabs.
