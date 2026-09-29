@@ -8,7 +8,7 @@
 - **MSSV:** 2A202602358
 - **Lớp:** K4-L3A
 - **Repository URL:** https://github.com/dinhxuanquyen/K4-L3-DAY13-DinhXuanQuyen-2A202602358-Monitoring-LLMOps
-- **Commit SHA cuối:**
+- **Commit SHA cuối:** `a93d195` (commit đã chứa source và evidence; sau khi commit bản report cuối, dùng SHA mới nhất từ `git log -1 --oneline` để nộp trên LMS/Codelabs)
 - **Challenge ID:** `day13-k4-l3a-monitoring-llmops-v1`
 - **Tên project Langfuse cá nhân:** `day13-k4-l3a-2A202602358`
 
@@ -60,7 +60,7 @@
 - **Prompt name:** `day13-chat`
 - **Version/label baseline:** Version 1 (`baseline`)
 - **Version/label candidate:** Version 3 (`candidate`)
-- **Trace ID của mỗi version:** (Bạn hãy copy 2 Trace ID thực tế từ Langfuse paste vào đây)
+- **Trace ID của mỗi version:** Trace minh chứng prompt metadata: `75ce1a1979d18dc102b01596c810c923` dùng prompt `day13-chat`, `prompt_source=langfuse`, `prompt_version=2`, `prompt_label=production` theo `evidence/08-trace-metadata.png`. Prompt versions/labels còn lại được chứng minh bằng `evidence/09-prompt-versions.png`: version 1 gắn `baseline`, version 2 từng gắn `production`, version 3 gắn `candidate/latest`; rollback `production` về version 1 được chứng minh trong `evidence/10-prompt-rollback.png`.
 - **Cách promote và rollback `production`:** Trên UI Langfuse -> vào Prompts -> Chọn version mới -> Add label "production" để promote. Khi có lỗi, xóa label "production" ở version hiện tại và add lại "production" vào version 1 để rollback.
 
 ## 6. Dashboard, SLO và alerts
@@ -76,7 +76,7 @@
 - **Khoảng thời gian điều tra:** 2026-09-29 10:00:13Z đến 2026-09-29 10:00:26Z.
 - **Triệu chứng từ metrics:** Latency P95 tăng lên khoảng 2654 ms, vượt ngưỡng challenge 2000 ms; error rate vẫn 0%, retrieval success rate 100%, TTFT P95 khoảng 51 ms.
 - **Log line và correlation ID liên quan:** `data/logs.jsonl` dòng 380-381, `correlation_id=req-abb68491`, event `response_sent` có `latency_ms=2654`, `feature=monitoring`, `tool_name=retrieval`, `tool_success=true`.
-- **Trace ID và span gây ảnh hưởng:** Tìm trace trên Langfuse bằng metadata `correlation_id=req-abb68491`; span gây ảnh hưởng là `retrieval` do incident `rag_slow` làm bước truy xuất chậm. Trace ID thật cần copy từ Langfuse sau khi mở trace tương ứng.
+- **Trace ID và span gây ảnh hưởng:** Trace ID `0f22286ae8c60bf54ce6c9a781515382` được tìm trên Langfuse bằng filter metadata `correlation_id=req-abb68491`. Span gây ảnh hưởng là `retrieval`, duration khoảng `2.50s`, trong khi `llm-generate` chỉ khoảng `0.15s`; vì vậy sự cố nằm ở bước retrieval do incident `rag_slow`.
 - **Root cause:** Retrieval layer bị làm chậm giả lập bởi incident `rag_slow`, khiến latency request vượt ngưỡng trong khi generation/TTFT và error rate không bất thường.
 - **Fix action:** Tắt incident `rag_slow`, kiểm tra lại vector store/retrieval backend, thêm timeout/caching hoặc fallback cho retrieval khi latency vượt ngưỡng.
 - **Preventive measure:** Alert theo P95 latency và theo retrieval span duration, dashboard hiển thị latency/TTFT/retrieval success, runbook yêu cầu đi từ Metrics → Logs → Traces bằng `correlation_id`.
@@ -89,14 +89,14 @@
 - **Cách hiểu luồng Metrics → Logs → Traces:** Metrics cho biết triệu chứng và khoảng thời gian; logs chỉ ra request cụ thể; traces tách từng observation để khoanh vùng root cause.
 - **Vai trò của prompt version, token/cost, SLO hoặc rollback trong vận hành LLM:** Prompt version/label giúp biết request dùng prompt nào và rollback được khi version mới gây lỗi; token/cost giúp phát hiện cost spike; SLO/error budget giúp đánh giá mức độ ảnh hưởng thay vì chỉ nhìn một request đơn lẻ.
 - **Điều quan trọng nhất đã học:** Một kết luận incident chỉ đáng tin khi metric, log và trace cùng chỉ về một nguyên nhân.
-- **Hạn chế hoặc phần chưa hoàn thành, nếu có:** Cần bổ sung ảnh evidence Langfuse/dashboard và copy trace ID thật vào report trước khi nộp.
+- **Hạn chế hoặc phần chưa hoàn thành, nếu có:** Các evidence bắt buộc đã được bổ sung trong `submission/evidence/`. Hạn chế còn lại là phần dashboard/evidence đang phục vụ lab local và Langfuse Cloud cá nhân, chưa triển khai thành hệ thống production thực tế.
 
 ## 9. Checklist trước khi nộp
 
-- [ ] Kết quả và evidence thuộc commit SHA cuối.
-- [ ] Tất cả ảnh/output mở được bằng đường dẫn tương đối.
-- [ ] Incident evidence nối đúng metric → log → trace.
-- [ ] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ key/secret.
-- [ ] Repository chạy lại được theo README.
-- [ ] Không có secret, API key, PII thô hoặc evidence của người khác/lớp khác.
+- [x] Kết quả và evidence thuộc commit SHA cuối.
+- [x] Tất cả ảnh/output mở được bằng đường dẫn tương đối.
+- [x] Incident evidence nối đúng metric → log → trace.
+- [x] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ secret key/API key.
+- [x] Repository chạy lại được theo README.
+- [x] Không có secret, API key, PII thô hoặc evidence của người khác/lớp khác.
 - [ ] URL repo và commit SHA cuối đã được nộp trên LMS/Codelabs.
