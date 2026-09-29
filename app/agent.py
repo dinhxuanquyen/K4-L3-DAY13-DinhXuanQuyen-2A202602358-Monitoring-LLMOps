@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import time
+
 from dataclasses import dataclass
+from typing import Any
 
 from . import metrics
 from .mock_llm import FakeLLM
@@ -28,6 +30,28 @@ class LabAgent:
         self.model = model
         self.llm = FakeLLM(model=model)
 
+    @observe(name="retrieval", as_type="span", capture_input=False, capture_output=False)
+    def _do_retrieve(self, msg: str) -> list[str]:
+        try:
+            docs = retrieve(msg)
+        except Exception:
+            metrics.record_retrieval(False)
+            raise
+        metrics.record_retrieval(True)
+        return docs
+
+    @observe(name="llm_call", as_type="generation", capture_input=False, capture_output=False)
+    def _do_generate(self, text: str, managed_pr: Any) -> Any:
+        res = self.llm.generate(text)
+        c = self._estimate_cost(res.usage.input_tokens, res.usage.output_tokens)
+        get_langfuse_client().update_current_generation(
+            model=res.model,
+            prompt=managed_pr,
+            usage_details={"input": res.usage.input_tokens, "output": res.usage.output_tokens},
+            cost_details={"total": c}
+        )
+        return res
+
     @observe(name="lab-agent-run", as_type="agent", capture_input=False, capture_output=False)
     def run(
         self,
@@ -48,10 +72,11 @@ class LabAgent:
                 "feature": feature,
                 "model": self.model,
                 "correlation_id": correlation_id,
-            },
+            }
         ):
             started = time.perf_counter()
-            docs = retrieve(message)
+            docs = self._do_retrieve(message)
+                
             prompt = resolve_prompt(
                 langfuse_client,
                 feature=feature,
@@ -71,10 +96,10 @@ class LabAgent:
                 },
                 version=prompt.version,
             )
-            # TODO (CP2): instrument retrieve() and FakeLLM.generate() as child
-            # observations. The nested generation must receive prompt, usage and cost.
+
             with propagate_attributes(prompt=prompt.managed_prompt):
-                response = self.llm.generate(prompt.text)
+                response = self._do_generate(prompt.text, prompt.managed_prompt)
+
             quality_score = self._heuristic_quality(message, response.text, docs)
             latency_ms = int((time.perf_counter() - started) * 1000)
             cost_usd = self._estimate_cost(response.usage.input_tokens, response.usage.output_tokens)
