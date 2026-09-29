@@ -30,7 +30,7 @@ class LabAgent:
         self.model = model
         self.llm = FakeLLM(model=model)
 
-    @observe(name="retrieval", as_type="span", capture_input=False, capture_output=False)
+    @observe(name="retrieval", as_type="retriever", capture_input=False, capture_output=False)
     def _do_retrieve(self, msg: str) -> list[str]:
         try:
             docs = retrieve(msg)
@@ -38,15 +38,22 @@ class LabAgent:
             metrics.record_retrieval(False)
             raise
         metrics.record_retrieval(True)
+        get_langfuse_client().update_current_span(
+            input={"query_preview": summarize_text(msg)},
+            output={"doc_count": len(docs)},
+            metadata={"doc_count": len(docs)},
+        )
         return docs
 
-    @observe(name="llm_call", as_type="generation", capture_input=False, capture_output=False)
+    @observe(name="llm-generate", as_type="generation", capture_input=False, capture_output=False)
     def _do_generate(self, text: str, managed_pr: Any) -> Any:
         res = self.llm.generate(text)
         c = self._estimate_cost(res.usage.input_tokens, res.usage.output_tokens)
         get_langfuse_client().update_current_generation(
             model=res.model,
             prompt=managed_pr,
+            input={"prompt_preview": summarize_text(text)},
+            output={"answer_preview": summarize_text(res.text)},
             usage_details={"input": res.usage.input_tokens, "output": res.usage.output_tokens},
             cost_details={"total": c}
         )

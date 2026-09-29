@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import asyncio
+import re
 from pathlib import Path
 
 import httpx
@@ -40,3 +41,29 @@ def test_chat_response_log_exposes_quality_for_dashboard(
     assert response_event["ttft_ms"] == response.json()["ttft_ms"]
     assert response_event["tool_name"] == "retrieval"
     assert response_event["tool_success"] is True
+
+
+def test_request_id_header_must_match_lab_format() -> None:
+    async def send_request(header_value: str) -> httpx.Response:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
+            return await client.post(
+                "/chat",
+                headers={"x-request-id": header_value},
+                json={
+                    "user_id": "student-01",
+                    "session_id": "session-01",
+                    "feature": "qa",
+                    "message": "Explain observability",
+                },
+            )
+
+    valid_response = asyncio.run(send_request("req-abcdef12"))
+    assert valid_response.headers["x-request-id"] == "req-abcdef12"
+
+    invalid_response = asyncio.run(send_request("bad-request-id"))
+    generated_id = invalid_response.headers["x-request-id"]
+    assert generated_id != "bad-request-id"
+    assert re.fullmatch(r"req-[0-9a-f]{8}", generated_id)

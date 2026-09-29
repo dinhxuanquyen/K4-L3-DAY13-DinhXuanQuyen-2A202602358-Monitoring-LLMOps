@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Day 13 Monitoring LLMOps Dashboard</title>
+  <style>
+    :root {
+      --ink: #18202f;
+      --muted: #667085;
+      --line: #d9e1ec;
+      --panel: #ffffff;
+      --paper: #f5f7fb;
+      --ok: #16875a;
+      --warn: #b45309;
+      --bad: #b42318;
+      --blue: #2563eb;
+      --violet: #7c3aed;
+      --teal: #0f766e;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+    }
+
+    .shell {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .subline {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .pill,
+    label.file {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: var(--ink);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    label.file {
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .stat,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .stat {
+      padding: 14px;
+    }
+
+    .stat .name {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .stat .value {
+      font-size: 24px;
+      font-weight: 760;
+      line-height: 1;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .panel {
+      min-height: 250px;
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 12px;
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .unit {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .badge {
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge.ok {
+      background: #eaf7f0;
+      color: var(--ok);
+    }
+
+    .badge.warn {
+      background: #fff4e5;
+      color: var(--warn);
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .mini {
+      border: 1px solid #e6ebf2;
+      border-radius: 6px;
+      padding: 9px;
+      min-height: 64px;
+    }
+
+    .mini .k {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 7px;
+    }
+
+    .mini .v {
+      font-size: 20px;
+      font-weight: 760;
+    }
+
+    .chart {
+      width: 100%;
+      min-height: 94px;
+      border: 1px solid #e6ebf2;
+      border-radius: 6px;
+      background:
+        linear-gradient(to top, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0)),
+        repeating-linear-gradient(to bottom, transparent, transparent 29px, #edf1f7 30px);
+      overflow: hidden;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 110px;
+    }
+
+    .bar {
+      fill: var(--blue);
+      opacity: 0.78;
+    }
+
+    .bar.alt {
+      fill: var(--violet);
+    }
+
+    .line {
+      fill: none;
+      stroke: var(--teal);
+      stroke-width: 3;
+    }
+
+    .threshold {
+      stroke: var(--bad);
+      stroke-dasharray: 5 5;
+      stroke-width: 2;
+    }
+
+    .foot {
+      color: var(--muted);
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      border-top: 1px solid #edf1f7;
+      padding-top: 10px;
+    }
+
+    .foot strong {
+      color: var(--ink);
+    }
+
+    @media (max-width: 980px) {
+      .summary,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>Day 13 Monitoring LLMOps</h1>
+        <div class="subline">Source: data/logs.jsonl | Time range: last 60 minutes | Refresh evidence: manual file load</div>
+      </div>
+      <div class="toolbar">
+        <span class="pill" id="records">390 log records</span>
+        <span class="pill">Env: dev</span>
+        <label class="file">
+          Load logs.jsonl
+          <input id="file" type="file" accept=".jsonl,.txt" />
+        </label>
+      </div>
+    </header>
+
+    <section class="summary">
+      <div class="stat"><div class="name">Requests</div><div class="value" id="sumRequests">192</div></div>
+      <div class="stat"><div class="name">Responses</div><div class="value" id="sumResponses">182</div></div>
+      <div class="stat"><div class="name">Error rate</div><div class="value" id="sumError">5.21%</div></div>
+      <div class="stat"><div class="name">Retrieval success</div><div class="value" id="sumRetrieval">100%</div></div>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="panel-title">
+          <div><h2>Latency and TTFT</h2><div class="unit">unit: ms | threshold: p95 <= 3000</div></div>
+          <span class="badge ok" id="latencyBadge">within SLO</span>
+        </div>
+        <div class="metric-row">
+          <div class="mini"><div class="k">P50</div><div class="v" id="p50">152</div></div>
+          <div class="mini"><div class="k">P95</div><div class="v" id="p95">2653</div></div>
+          <div class="mini"><div class="k">P99</div><div class="v" id="p99">2654</div></div>
+          <div class="mini"><div class="k">TTFT P95</div><div class="v" id="ttft">51</div></div>
+        </div>
+        <div class="chart" id="latencyChart"></div>
+        <div class="foot"><span>Event: response_sent</span><strong>P95/P99 reveal tail latency</strong></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-title">
+          <div><h2>Traffic</h2><div class="unit">unit: requests per minute | threshold: >= 1</div></div>
+          <span class="badge ok">active</span>
+        </div>
+        <div class="metric-row">
+          <div class="mini"><div class="k">Received</div><div class="v" id="trafficReq">192</div></div>
+          <div class="mini"><div class="k">Succeeded</div><div class="v" id="trafficRes">182</div></div>
+          <div class="mini"><div class="k">Failed</div><div class="v" id="trafficFail">10</div></div>
+          <div class="mini"><div class="k">Rate/min</div><div class="v" id="trafficRate">3.2</div></div>
+        </div>
+        <div class="chart" id="trafficChart"></div>
+        <div class="foot"><span>Event: request_received</span><strong>Count by minute</strong></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-title">
+          <div><h2>Errors and Retrieval</h2><div class="unit">unit: percent | thresholds: errors <= 2, retrieval >= 90</div></div>
+          <span class="badge warn" id="errorBadge">review</span>
+        </div>
+        <div class="metric-row">
+          <div class="mini"><div class="k">Error rate</div><div class="v" id="errorRate">5.21%</div></div>
+          <div class="mini"><div class="k">Failures</div><div class="v" id="failures">10</div></div>
+          <div class="mini"><div class="k">Retrieval</div><div class="v" id="retrieval">100%</div></div>
+          <div class="mini"><div class="k">Tool attempts</div><div class="v" id="toolAttempts">182</div></div>
+        </div>
+        <div class="chart" id="errorChart"></div>
+        <div class="foot"><span>Events: request_failed, response_sent</span><strong>Symptom based alerting</strong></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-title">
+          <div><h2>Cost</h2><div class="unit">unit: USD | threshold: total <= 2.5</div></div>
+          <span class="badge ok" id="costBadge">controlled</span>
+        </div>
+        <div class="metric-row">
+          <div class="mini"><div class="k">Total</div><div class="v" id="costTotal">$0.3711</div></div>
+          <div class="mini"><div class="k">Avg/request</div><div class="v" id="costAvg">$0.0020</div></div>
+          <div class="mini"><div class="k">Max</div><div class="v" id="costMax">$0.0100</div></div>
+          <div class="mini"><div class="k">Responses</div><div class="v" id="costResponses">182</div></div>
+        </div>
+        <div class="chart" id="costChart"></div>
+        <div class="foot"><span>Field: cost_usd</span><strong>Sum by minute and total</strong></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-title">
+          <div><h2>Tokens</h2><div class="unit">unit: tokens | threshold: total <= 50000</div></div>
+          <span class="badge ok" id="tokenBadge">within budget</span>
+        </div>
+        <div class="metric-row">
+          <div class="mini"><div class="k">Input</div><div class="v" id="tokensIn">5979</div></div>
+          <div class="mini"><div class="k">Output</div><div class="v" id="tokensOut">23541</div></div>
+          <div class="mini"><div class="k">Total</div><div class="v" id="tokensTotal">29520</div></div>
+          <div class="mini"><div class="k">Out/In</div><div class="v" id="tokenRatio">3.94</div></div>
+        </div>
+        <div class="chart" id="tokenChart"></div>
+        <div class="foot"><span>Fields: tokens_in, tokens_out</span><strong>Cost driver visibility</strong></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-title">
+          <div><h2>Quality Proxy</h2><div class="unit">unit: score 0 to 1 | threshold: mean >= 0.75</div></div>
+          <span class="badge ok" id="qualityBadge">healthy</span>
+        </div>
+        <div class="metric-row">
+          <div class="mini"><div class="k">Mean</div><div class="v" id="qualityMean">0.863</div></div>
+          <div class="mini"><div class="k">Min</div><div class="v" id="qualityMin">0.8</div></div>
+          <div class="mini"><div class="k">Max</div><div class="v" id="qualityMax">0.9</div></div>
+          <div class="mini"><div class="k">Samples</div><div class="v" id="qualitySamples">182</div></div>
+        </div>
+        <div class="chart" id="qualityChart"></div>
+        <div class="foot"><span>Field: quality_score</span><strong>Heuristic response quality</strong></div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const defaultRows = [];
+    const defaultMetrics = {
+      total_logs: 390,
+      requests: 192,
+      responses: 182,
+      errors: 10,
+      latency_p50: 152,
+      latency_p95: 2653,
+      latency_p99: 2654,
+      ttft_p95: 51,
+      cost_total: 0.371052,
+      tokens_in: 5979,
+      tokens_out: 23541,
+      quality_avg: 0.863,
+      retrieval_success: 100,
+      error_rate: 5.21
+    };
+
+    function percentile(values, p) {
+      if (!values.length) return 0;
+      const sorted = values.slice().sort((a, b) => a - b);
+      const idx = Math.max(0, Math.min(sorted.length - 1, Math.round((p / 100) * sorted.length + 0.5) - 1));
+      return sorted[idx];
+    }
+
+    function bucketByMinute(rows, field, eventName, reducer) {
+      const buckets = new Map();
+      rows.filter((row) => row.event === eventName).forEach((row) => {
+        const minute = String(row.ts || "").slice(11, 16);
+        if (!buckets.has(minute)) buckets.set(minute, []);
+        buckets.get(minute).push(Number(row[field] || 0));
+      });
+      return Array.from(buckets.entries()).slice(-18).map(([minute, values]) => ({
+        label: minute,
+        value: reducer(values)
+      }));
+    }
+
+    function makeBarChart(items, colorClass = "") {
+      const max = Math.max(1, ...items.map((item) => item.value));
+      const width = 360;
+      const height = 110;
+      const gap = 4;
+      const barWidth = Math.max(4, (width - gap * (items.length + 1)) / Math.max(1, items.length));
+      const bars = items.map((item, i) => {
+        const h = Math.max(2, (item.value / max) * 88);
+        const x = gap + i * (barWidth + gap);
+        const y = height - h - 10;
+        return `<rect class="bar ${colorClass}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${h.toFixed(1)}"><title>${item.label}: ${item.value}</title></rect>`;
+      }).join("");
+      return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="bar chart">${bars}</svg>`;
+    }
+
+    function makeLineChart(items, threshold) {
+      const max = Math.max(threshold || 1, ...items.map((item) => item.value), 1);
+      const width = 360;
+      const height = 110;
+      const points = items.map((item, i) => {
+        const x = items.length <= 1 ? 0 : (i / (items.length - 1)) * width;
+        const y = height - 10 - (item.value / max) * 88;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+      const thresholdY = height - 10 - ((threshold || 0) / max) * 88;
+      return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="line chart"><line class="threshold" x1="0" x2="${width}" y1="${thresholdY.toFixed(1)}" y2="${thresholdY.toFixed(1)}"></line><polyline class="line" points="${points}"></polyline></svg>`;
+    }
+
+    function money(value) {
+      return "$" + Number(value || 0).toFixed(4);
+    }
+
+    function compute(rows) {
+      const requests = rows.filter((row) => row.event === "request_received");
+      const responses = rows.filter((row) => row.event === "response_sent");
+      const failures = rows.filter((row) => row.event === "request_failed");
+      const latencies = responses.map((row) => Number(row.latency_ms || 0));
+      const ttft = responses.map((row) => Number(row.ttft_ms || 0));
+      const costs = responses.map((row) => Number(row.cost_usd || 0));
+      const quality = responses.map((row) => Number(row.quality_score || 0)).filter((value) => value > 0);
+      const toolRows = responses.filter((row) => Object.prototype.hasOwnProperty.call(row, "tool_success"));
+      const tokenIn = responses.reduce((sum, row) => sum + Number(row.tokens_in || 0), 0);
+      const tokenOut = responses.reduce((sum, row) => sum + Number(row.tokens_out || 0), 0);
+      return {
+        total_logs: rows.length,
+        requests: requests.length,
+        responses: responses.length,
+        errors: failures.length,
+        latency_p50: percentile(latencies, 50),
+        latency_p95: percentile(latencies, 95),
+        latency_p99: percentile(latencies, 99),
+        ttft_p95: percentile(ttft, 95),
+        cost_total: costs.reduce((a, b) => a + b, 0),
+        cost_avg: costs.length ? costs.reduce((a, b) => a + b, 0) / costs.length : 0,
+        cost_max: Math.max(0, ...costs),
+        tokens_in: tokenIn,
+        tokens_out: tokenOut,
+        quality_avg: quality.length ? quality.reduce((a, b) => a + b, 0) / quality.length : 0,
+        quality_min: quality.length ? Math.min(...quality) : 0,
+        quality_max: quality.length ? Math.max(...quality) : 0,
+        quality_samples: quality.length,
+        retrieval_success: toolRows.length ? (toolRows.filter((row) => row.tool_success === true).length / toolRows.length) * 100 : 0,
+        error_rate: requests.length ? (failures.length / requests.length) * 100 : 0,
+        tool_attempts: toolRows.length,
+        latencySeries: bucketByMinute(rows, "latency_ms", "response_sent", (values) => percentile(values, 95)),
+        trafficSeries: bucketByMinute(rows, "event", "request_received", (values) => values.length),
+        costSeries: bucketByMinute(rows, "cost_usd", "response_sent", (values) => values.reduce((a, b) => a + b, 0)),
+        qualitySeries: bucketByMinute(rows, "quality_score", "response_sent", (values) => values.reduce((a, b) => a + b, 0) / Math.max(1, values.length))
+      };
+    }
+
+    function render(metrics, rows = []) {
+      const totalTokens = metrics.tokens_in + metrics.tokens_out;
+      document.getElementById("records").textContent = `${metrics.total_logs} log records`;
+      document.getElementById("sumRequests").textContent = metrics.requests;
+      document.getElementById("sumResponses").textContent = metrics.responses;
+      document.getElementById("sumError").textContent = `${metrics.error_rate.toFixed(2)}%`;
+      document.getElementById("sumRetrieval").textContent = `${metrics.retrieval_success.toFixed(1)}%`;
+      document.getElementById("p50").textContent = Math.round(metrics.latency_p50);
+      document.getElementById("p95").textContent = Math.round(metrics.latency_p95);
+      document.getElementById("p99").textContent = Math.round(metrics.latency_p99);
+      document.getElementById("ttft").textContent = Math.round(metrics.ttft_p95);
+      document.getElementById("trafficReq").textContent = metrics.requests;
+      document.getElementById("trafficRes").textContent = metrics.responses;
+      document.getElementById("trafficFail").textContent = metrics.errors;
+      document.getElementById("trafficRate").textContent = (metrics.requests / 60).toFixed(1);
+      document.getElementById("errorRate").textContent = `${metrics.error_rate.toFixed(2)}%`;
+      document.getElementById("failures").textContent = metrics.errors;
+      document.getElementById("retrieval").textContent = `${metrics.retrieval_success.toFixed(1)}%`;
+      document.getElementById("toolAttempts").textContent = metrics.tool_attempts || metrics.responses;
+      document.getElementById("costTotal").textContent = money(metrics.cost_total);
+      document.getElementById("costAvg").textContent = money(metrics.cost_avg || metrics.cost_total / Math.max(1, metrics.responses));
+      document.getElementById("costMax").textContent = money(metrics.cost_max || 0.01);
+      document.getElementById("costResponses").textContent = metrics.responses;
+      document.getElementById("tokensIn").textContent = metrics.tokens_in;
+      document.getElementById("tokensOut").textContent = metrics.tokens_out;
+      document.getElementById("tokensTotal").textContent = totalTokens;
+      document.getElementById("tokenRatio").textContent = (metrics.tokens_out / Math.max(1, metrics.tokens_in)).toFixed(2);
+      document.getElementById("qualityMean").textContent = metrics.quality_avg.toFixed(3);
+      document.getElementById("qualityMin").textContent = (metrics.quality_min || 0.8).toFixed(1);
+      document.getElementById("qualityMax").textContent = (metrics.quality_max || 0.9).toFixed(1);
+      document.getElementById("qualitySamples").textContent = metrics.quality_samples || metrics.responses;
+
+      const latencyBadge = document.getElementById("latencyBadge");
+      latencyBadge.className = metrics.latency_p95 <= 3000 ? "badge ok" : "badge warn";
+      latencyBadge.textContent = metrics.latency_p95 <= 3000 ? "within SLO" : "above threshold";
+
+      const errorBadge = document.getElementById("errorBadge");
+      errorBadge.className = metrics.error_rate <= 2 ? "badge ok" : "badge warn";
+      errorBadge.textContent = metrics.error_rate <= 2 ? "within guardrail" : "review";
+
+      document.getElementById("costBadge").className = metrics.cost_total <= 2.5 ? "badge ok" : "badge warn";
+      document.getElementById("tokenBadge").className = totalTokens <= 50000 ? "badge ok" : "badge warn";
+      document.getElementById("qualityBadge").className = metrics.quality_avg >= 0.75 ? "badge ok" : "badge warn";
+
+      const latencySeries = metrics.latencySeries && metrics.latencySeries.length ? metrics.latencySeries : [
+        { label: "p50", value: metrics.latency_p50 },
+        { label: "p95", value: metrics.latency_p95 },
+        { label: "p99", value: metrics.latency_p99 }
+      ];
+      document.getElementById("latencyChart").innerHTML = makeLineChart(latencySeries, 3000);
+      document.getElementById("trafficChart").innerHTML = makeBarChart(metrics.trafficSeries && metrics.trafficSeries.length ? metrics.trafficSeries : [{ label: "requests", value: metrics.requests }]);
+      document.getElementById("errorChart").innerHTML = makeBarChart([
+        { label: "errors", value: metrics.error_rate },
+        { label: "retrieval", value: metrics.retrieval_success }
+      ], "alt");
+      document.getElementById("costChart").innerHTML = makeBarChart(metrics.costSeries && metrics.costSeries.length ? metrics.costSeries : [{ label: "cost", value: metrics.cost_total }]);
+      document.getElementById("tokenChart").innerHTML = makeBarChart([
+        { label: "input", value: metrics.tokens_in },
+        { label: "output", value: metrics.tokens_out }
+      ], "alt");
+      document.getElementById("qualityChart").innerHTML = makeLineChart(metrics.qualitySeries && metrics.qualitySeries.length ? metrics.qualitySeries : [{ label: "quality", value: metrics.quality_avg }], 0.75);
+    }
+
+    document.getElementById("file").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      const rows = text.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+      render(compute(rows), rows);
+    });
+
+    render(defaultMetrics, defaultRows);
+  </script>
+</body>
+</html>
